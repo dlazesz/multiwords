@@ -87,3 +87,9 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+#PyCharm
+.idea/
+
+# Temp file from editor
+*~
