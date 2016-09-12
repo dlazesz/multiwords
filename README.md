@@ -24,14 +24,14 @@ Originally there were four versions available, which were incorporated into thre
 
 Command syntax:
 
-> ./multiwords.py dice|scp MAXN
+> ./multiwords.py dice|scp strict|relaxed MAXN
 For example this command will extract bigrams and trigrams from the given corpus, using scp as the "glue" function:
 
-> ./multiwords.py scp 3 < corpus.txt > mwus.txt
+> ./multiwords.py scp strict 3 < corpus.txt > mwus.txt
 
 ### multiwords 2.0 version
 
-> ./multiwords.py dice|scp MAXN TEXTFILE OUTPUTDIR
+> ./multiwords2.py dice|scp MAXN TEXTFILE OUTPUTDIR
 
 MAXN is an integer ≥ 2
 
@@ -41,7 +41,7 @@ OUTPUTDIR is the name of a directory (it will be created if it doesn't exist) wh
 
 For example this command will extract bigrams and trigrams from the given corpus, using scp as the "glue" function:
 
-> ./multiwords.py scp 3 corpus.txt results
+> ./multiwords2.py scp 3 corpus.txt results
 
 The output files will be results/2mwus.txt and results/3mwus.txt
 

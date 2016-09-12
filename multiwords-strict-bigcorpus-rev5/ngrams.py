@@ -1,4 +1,6 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
+# -*- coding: utf-8, vim: expandtab:ts=4 -*-
+
 import sys
 
 if 2 != len(sys.argv):
@@ -7,8 +9,6 @@ if 2 != len(sys.argv):
 maxn = int(sys.argv[1])
 for line in sys.stdin:
     grams = line.rstrip().split()
-    if not grams: continue
-    for n in range(1, maxn + 1):
-        if n > len(grams): break
-        for i in range(len(grams) - n + 1):
-            print(*grams[i:i + n])
+    if grams:
+        sys.stdout.writelines('{0}\n'.format(' '.join(grams[i:i + n])) for n in range(1, min(maxn + 1, len(grams) + 1))
+                              for i in range(len(grams) - n + 1))

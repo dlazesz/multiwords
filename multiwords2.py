@@ -1,5 +1,7 @@
-#! /usr/bin/env python3
-'''
+#!/usr/bin/env python3
+# -*- coding: utf-8, vim: expandtab:ts=4 -*-
+
+"""
         Multi-Word Units (MWUs) Extractor based on (Silva and Lopes, 1999)
                     Luís Gomes <luismsgomes@gmail.com>
 
@@ -9,91 +11,65 @@ Joaquim Ferreira da Silva and Gabriel Pereira Lopes. A Local Maxima method
   and a Fair Dispersion Normalization for extracting multi-word units from
   corpora. In Sixth Meeting on Mathematics of Language, pages 369–381,
   Orlando, USA, 1999.
-'''
-import collections, os, sys
+"""
 
+from typing import Iterable
+import collections
+import os
+import sys
 
-def avg(ls):
-    return sum(ls) / len(ls)
 
 def dice(freq, pref_freqs, suff_freqs):
-    return 2 * freq / (avg(pref_freqs) + avg(suff_freqs))
+    avg_pref_freqs = sum(pref_freqs) / len(pref_freqs)
+    avg_suff_freqs = sum(suff_freqs) / len(suff_freqs)
+    return 2 * freq / (avg_pref_freqs + avg_suff_freqs)
+
 
 def scp(freq, pref_freqs, suff_freqs):
-    return freq ** 2 / avg([pref_freq * suff_freq for pref_freq, suff_freq in zip(pref_freqs, suff_freqs)])
+    multiplied_freqs = [pref_freq * suff_freq for pref_freq, suff_freq in zip(pref_freqs, suff_freqs)]
+    return freq ** 2 / (sum(multiplied_freqs) / len(multiplied_freqs))
 
-def compute_ngram_glues(n):
-    ngram_glues_filename = get_ngram_glues_filename(n)
-    with open(ngram_glues_filename + '.tmp', 'w') as output:
-        for ngram, freq, pref_freqs, suff_freqs in read_ngram_freqs(n):
-            glue = glue_fun(freq, pref_freqs, suff_freqs)
-            print(' '.join(ngram), glue, 0, 0, sep='\t', file=output)
-    os.rename(ngram_glues_filename + '.tmp', ngram_glues_filename)   
 
-def compute_glues_for_all_ngrams():
-    print('computing glues for all ngrams...', end=' ')
-    sys.stdout.flush()
-    for n in range(2, maxn+2):
-        print(n, end=' ')
-        sys.stdout.flush()
-        compute_ngram_glues(n)
-    print('done')
+def compute_ngram_glues(glue_f, ngram_freqs_fname, ngram_glues_fname, ngram_glues_fname_tmp):
+    with open(ngram_glues_fname_tmp, 'w') as output:
+        output.writelines('{0}\t{1}\t0\t0\n'.format(' '.join(ngram), str(glue_f(int(freq),
+                                                                                list(map(int, pref_freqs)),
+                                                                                list(map(int, suff_freqs)))))
+                          for ngram, freq, pref_freqs, suff_freqs in read_ngram_freqs(ngram_freqs_fname))
+    os.rename(ngram_glues_fname_tmp, ngram_glues_fname)
 
-def get_ngrams_in_line(n, line):
-    tokens = line.split()
-    for i in range(len(tokens) - n):
-        yield tuple(tokens[i:i+n])
 
-def get_ngrams(n):
-    global text_filename
-    with open(text_filename, 'r') as lines:
+def get_ngrams(curr_n, textfilename) -> Iterable[str]:
+    with open(textfilename) as lines:
         for line in lines:
-            for ngram in get_ngrams_in_line(n, line):
-                yield ngram
+            tokens = line.rstrip().split()
+            for i in range(len(tokens) - curr_n + 1):  # A BUG IN THE ORIGINAL CODE (FIXED): Last n-gram is not printed
+                yield ' '.join(tokens[i:i+curr_n])  # It will be joined on write...
 
-def compute_ngram_freqs(n):
-    freqs = collections.Counter(get_ngrams(n))
-    ngram_freqs_filename = get_ngram_freqs_filename(n)
-    with open(ngram_freqs_filename + '.tmp', 'w') as output:
-        for ngram, freq in freqs.items():
-            print(' '.join(ngram), freq, '', '', sep='\t', file=output)
-    os.rename(ngram_freqs_filename + '.tmp', ngram_freqs_filename)
 
-def compute_freqs_for_all_ngrams():
-    print('computing frequencies for all ngrams...', end=' ')
-    sys.stdout.flush()
-    for n in range(1, maxn+2):
-        print(n, end=' ')
-        sys.stdout.flush()
-        compute_ngram_freqs(n)
-    print('done')
+def compute_ngram_freqs(curr_n, textfilename, ngram_freqs_fname, ngram_freqs_fname_tmp):
+    with open(ngram_freqs_fname_tmp, 'w') as output:
+        output.writelines('{0}\t{1}\t\t\n'.format(ngram, freq)
+                          for ngram, freq in collections.Counter(get_ngrams(curr_n, textfilename)).items())
+    os.rename(ngram_freqs_fname_tmp, ngram_freqs_fname)
 
-def cascade_ngram_freqs(subngram_freqs, subn, n):
-    ngram_freqs_filename = get_ngram_freqs_filename(n)
-    with open(ngram_freqs_filename + '.tmp', 'w') as output:
-        for ngram, freq, pref_freqs, suff_freqs in read_ngram_freqs(n):
-            pref_freqs.append(subngram_freqs.get(ngram[:subn], 1))
-            suff_freqs.insert(0, subngram_freqs.get(ngram[-subn:], 1)) # prepend
-            print(' '.join(ngram), freq, ' '.join(map(str, pref_freqs)), ' '.join(map(str, suff_freqs)), sep='\t', file=output)
-    os.rename(ngram_freqs_filename + '.tmp', ngram_freqs_filename)
 
-def cascade_freqs_for_all_ngrams():
-    global maxn
-    print('cascading frequencies for all ngrams...', end=' ')
-    sys.stdout.flush()
-    for subn in range(1, maxn+1):
-        freqs = load_ngram_freqs(subn)
-        for n in range(subn + 1, maxn+2):
-            print('{}=>{}'.format(subn, n), end=' ')
-            sys.stdout.flush()
-            cascade_ngram_freqs(freqs, subn, n)
-    print('done')
+def cascade_ngram_freqs(subngram_freqs, sub_n, ngram_freqs_fname, ngram_freqs_fname_tmp):
+    with open(ngram_freqs_fname_tmp, 'w') as output:
+        for ngram, freq, pref_freqs, suff_freqs in read_ngram_freqs(ngram_freqs_fname):
+            pref_freqs.append(str(subngram_freqs.get(ngram[:sub_n], '1')))
+            suff_freqs.append(str(subngram_freqs.get(ngram[-sub_n:], '1')))  # will be prepended by reverse
+            print(' '.join(ngram), freq, ' '.join(pref_freqs),
+                  ' '.join(reversed(suff_freqs)), sep='\t', file=output)
+    os.rename(ngram_freqs_fname_tmp, ngram_freqs_fname)
 
-def cascade_ngram_glues(n):
-    subngram_glues = load_ngram_glues(n-1)
-    ngram_glues_filename = get_ngram_glues_filename(n)
-    with open(ngram_glues_filename + '.tmp', 'w') as output:
-        for ngram, glue, _, max_superngram_glue in read_ngram_glues(n):
+
+def cascade_ngram_glues(ngram_glues_fname, ngram_glues_fname_tmp, subngram_glues_fname, subngram_glues_fname_tmp):
+    subngram_glues = {ngram: [glue, max_subngram_glue, max_supngram_glue]
+                      for ngram, glue, max_subngram_glue, max_supngram_glue in read_ngram_glues(subngram_glues_fname)}
+
+    with open(ngram_glues_fname_tmp, 'w') as output:
+        for ngram, glue, _, max_superngram_glue in read_ngram_glues(ngram_glues_fname):
             pref = ngram[:-1]
             suff = ngram[1:]
             pref_glue, _, pref_max_supergram_glue = subngram_glues[pref]
@@ -104,98 +80,42 @@ def cascade_ngram_glues(n):
                 subngram_glues[pref][2] = glue
             if glue > suff_max_supergram_glue:
                 subngram_glues[suff][2] = glue
-    os.rename(ngram_glues_filename + '.tmp', ngram_glues_filename)
-    subngram_glues_filename = get_ngram_glues_filename(n-1)
-    with open(subngram_glues_filename + '.tmp', 'w') as output:
-        for ngram, (glue, max_subngram_glue, max_superngram_glue) in subngram_glues.items():
-            print(' '.join(ngram), glue, max_subngram_glue, max_superngram_glue, sep='\t', file=output)
-    os.rename(subngram_glues_filename + '.tmp', subngram_glues_filename)
+    os.rename(ngram_glues_fname_tmp, ngram_glues_fname)
 
-def cascade_glues_for_all_ngrams():
-    global maxn
-    print('cascading glues for all ngrams...', end=' ')
-    sys.stdout.flush()
-    for n in range(3, maxn+2):
-        print('{}<=>{}'.format(n-1, n), end=' ')
-        sys.stdout.flush()
-        cascade_ngram_glues(n)
-    print('done')
+    with open(subngram_glues_fname_tmp, 'w') as output:
+        output.writelines('{0}\t{1}\t{2}\t{3}\n'.format(' '.join(ngram), glue, max_subngram_glue, max_superngram_glue)
+                          for ngram, (glue, max_subngram_glue, max_superngram_glue) in subngram_glues.items())
+    os.rename(subngram_glues_fname_tmp, subngram_glues_fname)
 
-def select_local_maxima(n):
-    output_filename = get_output_filename(n)
-    with open(output_filename + '.tmp', 'w') as output:
-        for ngram, glue, max_subgrams_glue, max_supergrams_glue in read_ngram_glues(n):
-            if glue > (max_subgrams_glue + max_supergrams_glue) / 2:
-                print(' '.join(ngram), file=output)
-    os.rename(output_filename + '.tmp', output_filename)
 
-def select_local_maxima_for_all_ngrams():
-    global maxn
-    print('selecting local maxima...', end=' ')
-    sys.stdout.flush()
-    for n in range(2, maxn+1):
-        print(n, end=' ')
-        sys.stdout.flush()
-        select_local_maxima(n)
-    print('done')
+def select_local_maxima(ngram_glues_fname, output_fname, output_fname_tmp):
+    with open(output_fname_tmp, 'w') as output:
+        output.writelines(' '.join(ngram) + '\n'
+                          for ngram, glue, max_subgrams_glue, max_supergrams_glue in read_ngram_glues(ngram_glues_fname)
+                          if glue > (max_subgrams_glue + max_supergrams_glue) / 2)
+    os.rename(output_fname_tmp, output_fname)
 
-def load_ngram_glues(n):
-    glues = dict()
-    with open(get_ngram_glues_filename(n), 'r') as lines:
+
+def read_ngram_glues(ngram_glues_fname):
+    with open(ngram_glues_fname) as lines:
         for line in lines:
-            cols = line.split('\t')
-            if not cols:
-                continue
-            assert len(cols) == 4
-            ngram = tuple(cols[0].split())
-            glue, max_subngram_glue, max_supngram_glue = map(float, cols[1:])
-            glues[ngram] = [glue, max_subngram_glue, max_supngram_glue]
-    return glues
+            cols = line.strip().split('\t')
+            if cols:
+                assert len(cols) == 4
+                ngram = tuple(cols[0].split())
+                glue, max_subngram_glue, max_supngram_glue = map(float, cols[1:])
+                yield ngram, glue, max_subngram_glue, max_supngram_glue
 
-def read_ngram_glues(n):
-    with open(get_ngram_glues_filename(n), 'r') as lines:
+
+def read_ngram_freqs(ngram_freqs_fname):
+    with open(ngram_freqs_fname) as lines:
         for line in lines:
-            cols = line.split('\t')
-            if not cols:
-                continue
-            assert len(cols) == 4
-            ngram = tuple(cols[0].split())
-            glue, max_subngram_glue, max_supngram_glue = map(float, cols[1:])
-            yield ngram, glue, max_subngram_glue, max_supngram_glue
-
-def load_ngram_freqs(n):
-    freqs = dict()
-    with open(get_ngram_freqs_filename(n), 'r') as lines:
-        for line in lines:
-            cols = line.split('\t')
-            if not cols:
-                continue
-            assert len(cols) == 4
-            ngram, freq = cols[:2]
-            freqs[tuple(ngram.split())] = int(freq)
-    return freqs
-
-def read_ngram_freqs(n):
-    with open(get_ngram_freqs_filename(n), 'r') as lines:
-        for line in lines:
-            cols = line.split('\t')
-            if not cols:
-                continue
-            assert len(cols) == 4
-            ngram, freq, pref_freqs, suff_freqs = cols
-            yield tuple(ngram.split()), int(freq), list(map(int, pref_freqs.split())), list(map(int, suff_freqs.split()))
-
-def get_ngram_freqs_filename(n):
-    global output_dir
-    return os.path.join(output_dir, str(n) + 'gram_freqs.txt')
-
-def get_ngram_glues_filename(n):
-    global output_dir
-    return os.path.join(output_dir, str(n) + 'gram_glues.txt')
-
-def get_output_filename(n):
-    global output_dir
-    return os.path.join(output_dir, str(n) + 'mwus.txt')
+            cols = line.strip('\n').split('\t')
+            if cols:
+                assert len(cols) == 4
+                ngram, freq, pref_freqs, suff_freqs = cols
+                # Do not need to map freqs to int as it will be converted to string later...
+                yield (tuple(ngram.split()), freq, pref_freqs.split(), suff_freqs.split())
 
 if '__main__' == __name__:
     if 5 != len(sys.argv) or sys.argv[1] not in ('dice', 'scp'):
@@ -208,9 +128,59 @@ if '__main__' == __name__:
         os.mkdir(output_dir)
     assert os.path.isfile(text_filename)
     assert os.path.isdir(output_dir)
-    compute_freqs_for_all_ngrams()
-    cascade_freqs_for_all_ngrams()
-    compute_glues_for_all_ngrams()
-    cascade_glues_for_all_ngrams()
-    select_local_maxima_for_all_ngrams()
+    # Create filename pattern for later use
+    ngram_freqs_filename = os.path.join(output_dir,  'freqs_for_gram.')
+    ngram_freqs_filename_tmp = os.path.join(output_dir,  'tmp_' + 'freqs_for_gram.')
+    ngram_glues_filename = os.path.join(output_dir, 'glues_for_gram.')
+    ngram_glues_filename_tmp = os.path.join(output_dir, 'tmp_' + 'glues_for_gram.')
+    output_filename = os.path.join(output_dir, 'mwus.')
+    output_filename_tmp = os.path.join(output_dir, 'tmp_' + 'mwus.')
 
+    # compute freqs for all ngrams
+    print('computing frequencies for all ngrams...', end=' ')
+    sys.stdout.flush()
+    for n in range(1, maxn+2):
+        print(n, end=' ')
+        sys.stdout.flush()
+        compute_ngram_freqs(n, text_filename, ngram_freqs_filename + str(n), ngram_freqs_filename_tmp + str(n))
+    print('done')
+
+    # cascade freqs for all ngrams
+    print('cascading frequencies for all ngrams...', end=' ')
+    sys.stdout.flush()
+    for subn in range(1, maxn+1):
+        freqs = {ngram: freq for ngram, freq, _, __ in read_ngram_freqs(ngram_freqs_filename + str(subn))}
+        for n in range(subn + 1, maxn+2):
+            print('{}=>{}'.format(subn, n), end=' ')
+            sys.stdout.flush()
+            cascade_ngram_freqs(freqs, subn, ngram_freqs_filename + str(n), ngram_freqs_filename_tmp + str(n))
+    print('done')
+
+    # compute glues for all ngrams
+    print('computing glues for all ngrams...', end=' ')
+    sys.stdout.flush()
+    for n in range(2, maxn+2):
+        print(n, end=' ')
+        sys.stdout.flush()
+        compute_ngram_glues(glue_fun, ngram_freqs_filename + str(n),
+                            ngram_glues_filename + str(n), ngram_glues_filename_tmp + str(n))
+    print('done')
+
+    # cascade glues for all ngrams
+    print('cascading glues for all ngrams...', end=' ')
+    sys.stdout.flush()
+    for n in range(3, maxn+2):
+        print('{}<=>{}'.format(n-1, n), end=' ')
+        sys.stdout.flush()
+        cascade_ngram_glues(ngram_glues_filename + str(n), ngram_glues_filename_tmp + str(n),
+                            ngram_glues_filename + str(n-1), ngram_glues_filename_tmp + str(n-1))
+    print('done')
+
+    # select local maxima for all ngrams
+    print('selecting local maxima...', end=' ')
+    sys.stdout.flush()
+    for n in range(2, maxn+1):
+        print(n, end=' ')
+        sys.stdout.flush()
+        select_local_maxima(ngram_glues_filename + str(n), output_filename + str(n), output_filename_tmp + str(n))
+    print('done')
