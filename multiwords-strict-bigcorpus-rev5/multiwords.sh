@@ -90,7 +90,8 @@ MEM=$3
 
 $BIN/ngrams.py $((MAXN + 1)) |
     LANG=C sort -S $MEM | LANG=C uniq -c |
-    perl -pe 's/^\s*([0-9]+)\s+(.+)$/\2\t\1/' |                     # 1 #
+    mawk -v OFS="\t" '{for (i=2; i<NF; i++)
+                           printf("%s ", $i); print $NF,$1 }'       # 1 #
     $BIN/cascadefreqs.py |                                          # 2 #
     mawk -F'\t' -v OFS='\t' \
          '{n=split($1, ngram, " "); $1=""      # Split, delete field
@@ -100,7 +101,7 @@ $BIN/ngrams.py $((MAXN + 1)) |
           }' | # "a b c" => "c b a"
     LANG=C sort -t $'\t' -k 1 -S $MEM |                             # 3 #
     $BIN/cascadefreqs.py |                                          # 4 #
-    $BIN/dropn.py 1 | # drop unigrams                               # 5 #
+    LANG=C grep -v $'^[^ ]*\t' | # drop unigrams                    # 5 #
     $BIN/glue.py $GFUN |
     cut -f 1,2,5 | # keep only three columns: <ngram> <freq> <glue> # 6 #
     sed $'s/$/\t\+/' | # mark all ngrams as accepted (append '\t+') # 7 #
