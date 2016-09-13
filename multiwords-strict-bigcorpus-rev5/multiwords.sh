@@ -91,32 +91,33 @@ MEM=$3
 $BIN/ngrams.py $((MAXN + 1)) |
     LANG=C sort -S $MEM | LANG=C uniq -c |
     mawk -v OFS="\t" '{for (i=2; i<NF; i++)
-                           printf("%s ", $i); print $NF,$1 }'       # 1 #
-    $BIN/cascadefreqs.py |                                          # 2 #
+                           printf("%s ", $i); print $NF,$1 }'        # 1 #
+    $BIN/cascadefreqs.py |                                           # 2 #
     mawk -F'\t' -v OFS='\t' \
-         '{n=split($1, ngram, " "); $1=""      # Split, delete field
-           for (i=n; i>1; i--)                 # print REVERSE N-GRAM...
-               printf("%s ",ngram[i])          # ...minus the first
-           printf("%s%s%s", ngram[1], $0, ORS) # Print the rest
-          }' | # "a b c" => "c b a"
-    LANG=C sort -t $'\t' -k 1 -S $MEM |                             # 3 #
-    $BIN/cascadefreqs.py |                                          # 4 #
-    LANG=C grep -v $'^[^ ]*\t' | # drop unigrams                    # 5 #
+         '{n=split($1, ngram, " "); $1=""       # Split, delete field
+           for (i=n; i>1; i--)                  # print REVERSE N-GRAM...
+               printf("%s ",ngram[i])           # ...minus the first
+           printf("%s%s%s", ngram[1], $0, ORS)  # Print the rest
+          }' |  # "a b c" => "c b a"
+    LANG=C sort -t $'\t' -k 1 -S $MEM |                              # 3 #
+    $BIN/cascadefreqs.py |                                           # 4 #
+    LANG=C grep -v $'^[^ ]*\t' |  # drop unigrams                    # 5 #
     $BIN/glue.py $GFUN |
-    cut -f 1,2,5 | # keep only three columns: <ngram> <freq> <glue> # 6 #
+    cut -f 1,2,5 |  # keep only three columns: <ngram> <freq> <glue> # 6 #
     mawk -v OFS="\t" '{  # mark all ngrams as accepted
-                       print $0,"+"}' |   # (append '\t+')          # 7 #
-    $BIN/rejlocalmin.py |                                           # 8 #
+                       print $0,"+"}' |  # (append '\t+')            # 7 #
+    $BIN/rejlocalmin.py |                                            # 8 #
     mawk -F'\t' -v OFS='\t' \
-         '{n=split($1, ngram, " "); $1=""      # Split, delete field
-           for (i=n; i>1; i--)                 # print REVERSE N-GRAM...
-               printf("%s ",ngram[i])          # ...minus the first
-           printf("%s%s%s", ngram[1], $0, ORS) # Print the rest
-          }' | # put the ngrams in the original form
-    LANG=C sort -t $'\t' -k 1 -S $MEM | # sort by prefix
-    $BIN/rejlocalmin.py |                                           # 9 #
-    grep -v  $'^[^\t]*\t1\t.*\t-$' | # drop the rejected ones and hapax legomena (freq = 1)
-    cut -f -3 | # drop the last column (accepted/rejected)
+         '{n=split($1, ngram, " "); $1=""       # Split, delete field
+           for (i=n; i>1; i--)                  # print REVERSE N-GRAM...
+               printf("%s ",ngram[i])           # ...minus the first
+           printf("%s%s%s", ngram[1], $0, ORS)  # Print the rest
+          }' |  # put the ngrams in the original form
+    LANG=C sort -t $'\t' -k 1 -S $MEM |  # sort by prefix
+    $BIN/rejlocalmin.py |                                            # 9 #
+    grep -v $'\t1\t' |  # drop hapax legomena (freq = 1)
+    grep -v $'\t-$' |  # drop the rejected ones and
+    cut -f -3 |  # drop the last column (accepted/rejected)
     mawk -F"\t" -v OFS="\t"\
                 -v n=$((MAXN+1)) '{len=split($1, a, " ")  # cut and grep is faster then MAWK!
-                                   if (n != len) print $0}'         # 10 #
+                                   if (n != len) print $0}'          # 10 #
