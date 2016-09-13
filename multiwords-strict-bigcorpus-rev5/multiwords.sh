@@ -81,7 +81,7 @@
 BIN=$(dirname $0)
 
 if [ $# != 3 ]; then
-    echo "usage: $0 (dice|scp) MAXN SORTBUF(there will be two sorts!)" >&2
+    echo "usage: $0 (dice|scp) MAXN SORTBUF(there will be three sorts!)" >&2
     exit 1
 fi
 GFUN=$1
@@ -117,6 +117,6 @@ $BIN/ngrams.py $((MAXN + 1)) |
     $BIN/rejlocalmin.py |                                           # 9 #
     grep -v  $'^[^\t]*\t1\t.*\t-$' | # drop the rejected ones and hapax legomena (freq = 1)
     cut -f -3 | # drop the last column (accepted/rejected)
-    $BIN/dropn.py $((MAXN+1))                                       # 10 #
-
-
+    mawk -F"\t" -v OFS="\t"\
+                -v n=$((MAXN+1)) '{len=split($1, a, " ")  # cut and grep is faster then MAWK!
+                                   if (n != len) print $0}'         # 10 #

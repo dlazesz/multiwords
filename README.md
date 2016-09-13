@@ -53,11 +53,11 @@ Requirements:
 
 > ./multiwords-strict-bigcorpus-rev5/multiwords.sh dice|scp MAXN SORTBUF < input.txt > output.txt
 
-SORTBUF should not be more than the half of your memory as __there is two sorts in the pipeline__!
+SORTBUF should not be more than the half of your memory as __there is three sorts in the pipeline__!
 
 For example:
 
-> ./multiwords-strict-bigcorpus-rev5/multiwords.sh dice 3 45% < input.txt > output.txt
+> ./multiwords-strict-bigcorpus-rev5/multiwords.sh dice 3 30% < input.txt > output.txt
 
 ## License
 
