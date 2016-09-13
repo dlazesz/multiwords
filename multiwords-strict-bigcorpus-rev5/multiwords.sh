@@ -115,9 +115,8 @@ $BIN/ngrams.py $((MAXN + 1)) |
           }' | # put the ngrams in the original form
     LANG=C sort -t $'\t' -k 1 -S $MEM | # sort by prefix
     $BIN/rejlocalmin.py |                                           # 9 #
-    grep -v $'\t-$' | # drop the rejected ones
+    grep -v  $'^[^\t]*\t1\t.*\t-$' | # drop the rejected ones and hapax legomena (freq = 1)
     cut -f -3 | # drop the last column (accepted/rejected)
-    grep -v $'^[^\t]*\t1\t' | # drop hapax legomena (freq = 1)
     $BIN/dropn.py $((MAXN+1))                                       # 10 #
 
 
