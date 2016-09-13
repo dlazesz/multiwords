@@ -91,7 +91,7 @@ MEM=$3
 $BIN/ngrams.py $((MAXN + 1)) |
     LANG=C sort -S $MEM | LANG=C uniq -c |
     mawk -v OFS="\t" '{for (i=2; i<NF; i++)
-                           printf("%s ", $i); print $NF,$1 }'        # 1 #
+                           printf("%s ", $i); print $NF,$1 }' |      # 1 #
     $BIN/cascadefreqs.py |                                           # 2 #
     mawk -F'\t' -v OFS='\t' \
          '{n=split($1, ngram, " "); $1=""       # Split, delete field
