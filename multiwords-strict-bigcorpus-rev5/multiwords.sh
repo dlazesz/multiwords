@@ -105,7 +105,12 @@ $BIN/ngrams.py $((MAXN + 1)) |
     cut -f 1,2,5 | # keep only three columns: <ngram> <freq> <glue> # 6 #
     sed $'s/$/\t\+/' | # mark all ngrams as accepted (append '\t+') # 7 #
     $BIN/rejlocalmin.py |                                           # 8 #
-    $BIN/revngrams.py | # put the ngrams in the original form
+    mawk -F'\t' -v OFS='\t' \
+         '{n=split($1, ngram, " "); $1=""      # Split, delete field
+           for (i=n; i>1; i--)                 # Print reverse...
+               printf("%s ",ngram[i])          # ...minus the first
+           printf("%s%s%s", ngram[1], $0, ORS) # Print the rest
+          }' | # put the ngrams in the original form
     LANG=C sort -t $'\t' -k 1 -S $MEM | # sort by prefix
     $BIN/rejlocalmin.py |                                           # 9 #
     grep -v $'\t-$' | # drop the rejected ones
