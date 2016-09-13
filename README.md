@@ -45,6 +45,18 @@ For example this command will extract bigrams and trigrams from the given corpus
 
 The output files will be results/2mwus.txt and results/3mwus.txt
 
+### multiwords 1.5 bigcorpus-rev5 strict version
+
+Requirements: [MAWK](http://invisible-island.net/mawk/) as [it is the fastest AWK implementation available!](https://brenocon.com/blog/2009/09/dont-mawk-awk-the-fastest-and-most-elegant-big-data-munging-language/)
+
+> ./multiwords-strict-bigcorpus-rev5/multiwords.sh dice|scp MAXN SORTBUF < input.txt > output.txt
+
+SORTBUF should not be more than the half of your memory as __there is two sorts in the pipeline__!
+
+For example:
+
+> ./multiwords-strict-bigcorpus-rev5/multiwords.sh dice 3 45% < input.txt > output.txt
+
 ## License
 
 This modified code is made available under the GNU Lesser General Public License v3.0:

@@ -81,7 +81,7 @@
 BIN=$(dirname $0)
 
 if [ $# != 3 ]; then
-    echo "usage: $0 (dice|scp) MAXN SORTBUF" >&2
+    echo "usage: $0 (dice|scp) MAXN SORTBUF(there will be two sorts!)" >&2
     exit 1
 fi
 GFUN=$1
@@ -92,7 +92,12 @@ $BIN/ngrams.py $((MAXN + 1)) |
     LANG=C sort -S $MEM | LANG=C uniq -c |
     perl -pe 's/^\s*([0-9]+)\s+(.+)$/\2\t\1/' |                     # 1 #
     $BIN/cascadefreqs.py |                                          # 2 #
-    $BIN/revngrams.py | # "a b c" => "c b a"
+    mawk -F'\t' -v OFS='\t' \
+         '{n=split($1, ngram, " "); $1=""      # Split, delete field
+           for (i=n; i>1; i--)                 # Print reverse...
+               printf("%s ",ngram[i])          # ...minus the first
+           printf("%s%s%s", ngram[1], $0, ORS) # Print the rest
+          }' | # "a b c" => "c b a"
     LANG=C sort -t $'\t' -k 1 -S $MEM |                             # 3 #
     $BIN/cascadefreqs.py |                                          # 4 #
     $BIN/dropn.py 1 | # drop unigrams                               # 5 #
