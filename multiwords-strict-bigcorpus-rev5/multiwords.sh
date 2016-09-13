@@ -95,7 +95,7 @@ $BIN/ngrams.py $((MAXN + 1)) |
     $BIN/cascadefreqs.py |                                          # 2 #
     mawk -F'\t' -v OFS='\t' \
          '{n=split($1, ngram, " "); $1=""      # Split, delete field
-           for (i=n; i>1; i--)                 # Print reverse...
+           for (i=n; i>1; i--)                 # print REVERSE N-GRAM...
                printf("%s ",ngram[i])          # ...minus the first
            printf("%s%s%s", ngram[1], $0, ORS) # Print the rest
           }' | # "a b c" => "c b a"
@@ -104,11 +104,12 @@ $BIN/ngrams.py $((MAXN + 1)) |
     LANG=C grep -v $'^[^ ]*\t' | # drop unigrams                    # 5 #
     $BIN/glue.py $GFUN |
     cut -f 1,2,5 | # keep only three columns: <ngram> <freq> <glue> # 6 #
-    sed $'s/$/\t\+/' | # mark all ngrams as accepted (append '\t+') # 7 #
+    mawk -v OFS="\t" '{  # mark all ngrams as accepted
+                       print $0,"+"}' |   # (append '\t+')          # 7 #
     $BIN/rejlocalmin.py |                                           # 8 #
     mawk -F'\t' -v OFS='\t' \
          '{n=split($1, ngram, " "); $1=""      # Split, delete field
-           for (i=n; i>1; i--)                 # Print reverse...
+           for (i=n; i>1; i--)                 # print REVERSE N-GRAM...
                printf("%s ",ngram[i])          # ...minus the first
            printf("%s%s%s", ngram[1], $0, ORS) # Print the rest
           }' | # put the ngrams in the original form
@@ -116,7 +117,7 @@ $BIN/ngrams.py $((MAXN + 1)) |
     $BIN/rejlocalmin.py |                                           # 9 #
     grep -v $'\t-$' | # drop the rejected ones
     cut -f -3 | # drop the last column (accepted/rejected)
-    $BIN/drophapaxes.py | # drop hapax legomena (freq = 1)
+    grep -v $'^[^\t]*\t1\t' | # drop hapax legomena (freq = 1)
     $BIN/dropn.py $((MAXN+1))                                       # 10 #
 
 

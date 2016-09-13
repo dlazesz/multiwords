@@ -47,7 +47,9 @@ The output files will be results/2mwus.txt and results/3mwus.txt
 
 ### multiwords 1.5 bigcorpus-rev5 strict version
 
-Requirements: [MAWK](http://invisible-island.net/mawk/) as [it is the fastest AWK implementation available!](https://brenocon.com/blog/2009/09/dont-mawk-awk-the-fastest-and-most-elegant-big-data-munging-language/)
+Requirements:
+- [MAWK](http://invisible-island.net/mawk/) as [it is the fastest AWK implementation available!](https://brenocon.com/blog/2009/09/dont-mawk-awk-the-fastest-and-most-elegant-big-data-munging-language/)
+- No _Perl_ and _sed_ needed as MAWK is faster.
 
 > ./multiwords-strict-bigcorpus-rev5/multiwords.sh dice|scp MAXN SORTBUF < input.txt > output.txt
 
