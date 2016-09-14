@@ -89,8 +89,8 @@ dice="mawk -F$'\t' -v OFS=$'\t' 'function gfun(freq, pref_freqencies, p_len, suf
                             return 2*freq / (p_sum/p_len + s_sum/s_len)
                         }
                         {
-                            p_len = split(substr(\$3, 2, length(\$3)-2), pref_freqs, \", \");
-                            s_len = split(substr(\$4, 2, length(\$4)-2), suf_freqs, \", \");
+                            p_len = split(\$3, pref_freqs, \" \");
+                            s_len = split(\$4, suf_freqs, \" \");
                             printf(\"%s%s%.18f%s\", \$0, OFS, gfun(\$2, pref_freqs, p_len , suf_freqs, s_len), ORS)
                         }'"
 
@@ -102,8 +102,8 @@ scp="mawk -F$'\t' -v OFS=$'\t' 'function gfun(freq, pref_freqencies, p_len, suf_
                             return freq^2 *p_len / summed_multiplied
                         }
                         {
-                            p_len = split(substr(\$3, 2, length(\$3)-2), pref_freqs, \", \");
-                            s_len = split(substr(\$4, 2, length(\$4)-2), suf_freqs, \", \");
+                            p_len = split(\$3, pref_freqs, \" \");
+                            s_len = split(\$4, suf_freqs, \" \");
                             printf(\"%s%s%.18f%s\", \$0, OFS, gfun(\$2, pref_freqs, p_len , suf_freqs, s_len), ORS)
                         }'"
 
