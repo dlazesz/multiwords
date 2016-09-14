@@ -20,21 +20,22 @@ import sys
 
 
 def dice(freq, pref_freqs, suff_freqs):
-    avg_pref_freqs = sum(pref_freqs) / len(pref_freqs)
-    avg_suff_freqs = sum(suff_freqs) / len(suff_freqs)
-    return 2 * freq / (avg_pref_freqs + avg_suff_freqs)
+    pref_freqs = list(pref_freqs)
+    suff_freqs = list(suff_freqs)
+    return 2 * freq / (sum(pref_freqs) / len(pref_freqs) + sum(suff_freqs) / len(suff_freqs))
 
 
 def scp(freq, pref_freqs, suff_freqs):
     multiplied_freqs = [pref_freq * suff_freq for pref_freq, suff_freq in zip(pref_freqs, suff_freqs)]
-    return freq ** 2 / (sum(multiplied_freqs) / len(multiplied_freqs))
+    # freq^2 / sum(avg(multiplied)) = (freq^2 * len(multiplied)) / sum(multiplied) (Latter is more stable numerically)
+    return freq ** 2 * len(multiplied_freqs) / sum(multiplied_freqs)
 
 
 def compute_ngram_glues(glue_f, ngram_freqs_fname, ngram_glues_fname, ngram_glues_fname_tmp):
     with open(ngram_glues_fname_tmp, 'w') as output:
         output.writelines('{0}\t{1}\t0\t0\n'.format(' '.join(ngram), str(glue_f(int(freq),
-                                                                                list(map(int, pref_freqs)),
-                                                                                list(map(int, suff_freqs)))))
+                                                                                map(int, pref_freqs),
+                                                                                map(int, suff_freqs))))
                           for ngram, freq, pref_freqs, suff_freqs in read_ngram_freqs(ngram_freqs_fname))
     os.rename(ngram_glues_fname_tmp, ngram_glues_fname)
 
