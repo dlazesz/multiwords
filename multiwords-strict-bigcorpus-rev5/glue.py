@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8, vim: expandtab:ts=4 -*-
 
-import json
 import sys
 
 
-def _avg(ls):
-    return sum(ls) / len(ls)
+# Refer to the paper to learn about this function
+def _dice(freq, pref_freqencies, suf_freqencies):
+    pref_freqencies = list(pref_freqencies)
+    suf_freqencies = list(suf_freqencies)
+    # 2^freq / sum (average(pref), average(suf))
+    return 2 * freq / (sum(pref_freqencies)/len(pref_freqencies) + sum(suf_freqencies)/len(suf_freqencies))
 
 
 # Refer to the paper to learn about this function
-def _dice(freq, split_freqs):
-    return 2 * freq / sum(map(_avg, zip(*split_freqs)))
-
-
-# Refer to the paper to learn about this function
-def _scp(freq, split_freqs):
-    return freq ** 2 / _avg([lfreq * rfreq for lfreq, rfreq in split_freqs])
+def _scp(freq, pref_freqencies, suf_freqencies):
+    multiplied = [lfreq * rfreq for lfreq, rfreq in zip(pref_freqencies, suf_freqencies)]
+    # freq^2 / sum(avg(multiplied)) = (freq^2 * len(multiplied)) / sum(multiplied) (Latter is more stable numerically)
+    return freq ** 2 / (sum(multiplied) / len(multiplied))
 
 
 gfuns = {'dice': _dice, 'scp': _scp}
@@ -27,6 +27,7 @@ gfun = gfuns[sys.argv[1]]
 for line in sys.stdin:
     line = line.rstrip()  # we will use it to compose the output
     ngram, inp_freq, pref_freqs, suf_freqs = line.split('\t')
-    pref_freqs, suf_freqs = json.loads(pref_freqs), json.loads(suf_freqs)
-    glue = gfun(int(inp_freq), zip(pref_freqs, reversed(suf_freqs)))
+    glue = gfun(int(inp_freq),
+                map(int, pref_freqs[1:-1].split(', ')),
+                map(int, reversed(suf_freqs[1:-1].split(', '))))
     print(line, glue, sep='\t')
