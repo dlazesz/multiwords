@@ -8,7 +8,7 @@ import sys
 def _dice(freq, pref_freqencies, suf_freqencies):
     pref_freqencies = list(pref_freqencies)
     suf_freqencies = list(suf_freqencies)
-    # 2^freq / sum (average(pref), average(suf))
+    # 2 * freq / sum (average(pref), average(suf))
     return 2 * freq / (sum(pref_freqencies)/len(pref_freqencies) + sum(suf_freqencies)/len(suf_freqencies))
 
 
@@ -16,8 +16,7 @@ def _dice(freq, pref_freqencies, suf_freqencies):
 def _scp(freq, pref_freqencies, suf_freqencies):
     multiplied = [lfreq * rfreq for lfreq, rfreq in zip(pref_freqencies, suf_freqencies)]
     # freq^2 / sum(avg(multiplied)) = (freq^2 * len(multiplied)) / sum(multiplied) (Latter is more stable numerically)
-    return freq ** 2 / (sum(multiplied) / len(multiplied))
-
+    return (freq ** 2 * len(multiplied)) / sum(multiplied)
 
 gfuns = {'dice': _dice, 'scp': _scp}
 if 2 != len(sys.argv) or sys.argv[1] not in gfuns:
@@ -26,8 +25,8 @@ gfun = gfuns[sys.argv[1]]
 
 for line in sys.stdin:
     line = line.rstrip()  # we will use it to compose the output
-    ngram, inp_freq, pref_freqs, suf_freqs = line.split('\t')
+    _, inp_freq, pref_freqs, suf_freqs = line.split('\t')
     glue = gfun(int(inp_freq),
                 map(int, pref_freqs[1:-1].split(', ')),
                 map(int, reversed(suf_freqs[1:-1].split(', '))))
-    print(line, glue, sep='\t')
+    print(line, '{:0.18f}'.format(glue), sep='\t')  # Fixed output format for comparing!

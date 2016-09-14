@@ -80,11 +80,45 @@
 
 BIN=$(dirname $0)
 
+dice="mawk -F$'\t' -v OFS=$'\t' 'function gfun(freq, pref_freqencies, p_len, suf_freqencies, s_len)
+                        {
+                            p_sum = 0;
+                            for (i in pref_freqencies) p_sum+= pref_freqencies[i];
+                            s_sum = 0;
+                            for (i in suf_freqencies) s_sum+= suf_freqencies[s_len+1-i];
+                            return 2*freq / (p_sum/p_len + s_sum/s_len)
+                        }
+                        {
+                            p_len = split(substr(\$3, 2, length(\$3)-2), pref_freqs, \", \");
+                            s_len = split(substr(\$4, 2, length(\$4)-2), suf_freqs, \", \");
+                            printf(\"%s%s%.18f%s\", \$0, OFS, gfun(\$2, pref_freqs, p_len , suf_freqs, s_len), ORS)
+                        }'"
+
+scp="mawk -F$'\t' -v OFS=$'\t' 'function gfun(freq, pref_freqencies, p_len, suf_freqencies, s_len)
+                        {
+                            summed_multiplied = 0;
+                            for (i in pref_freqencies)
+                                summed_multiplied+= (pref_freqencies[i] *suf_freqencies[s_len+1-i]);
+                            return freq^2 *p_len / summed_multiplied
+                        }
+                        {
+                            p_len = split(substr(\$3, 2, length(\$3)-2), pref_freqs, \", \");
+                            s_len = split(substr(\$4, 2, length(\$4)-2), suf_freqs, \", \");
+                            printf(\"%s%s%.18f%s\", \$0, OFS, gfun(\$2, pref_freqs, p_len , suf_freqs, s_len), ORS)
+                        }'"
+
 if [ $# != 3 ]; then
-    echo "usage: $0 (dice|scp) MAXN SORTBUF(there will be three sorts!)" >&2
+    echo "usage: $0 (dice|scp) MAXN SORTBUF(there will be three sorts)!" >&2
+    exit 1
+elif [ "$1" == "dice" ]; then
+	GFUN=$dice
+elif [ "$1" == "scp" ]; then
+	GFUN=$scp
+else
+	echo "Wrong function name ($1) chose from dice or scp!" >&2
     exit 1
 fi
-GFUN=$1
+
 MAXN=$2
 MEM=$3
 
@@ -102,7 +136,7 @@ $BIN/ngrams.py $((MAXN + 1)) |
     LANG=C sort -t $'\t' -k 1 -S $MEM |                              # 3 #
     $BIN/cascadefreqs.py |                                           # 4 #
     LANG=C grep -v $'^[^ ]*\t' |  # drop unigrams                    # 5 #
-    $BIN/glue.py $GFUN |
+    eval $GFUN |
     cut -f 1,2,5 |  # keep only three columns: <ngram> <freq> <glue> # 6 #
     mawk -v OFS="\t" '{  # mark all ngrams as accepted
                        print $0,"+"}' |  # (append '\t+')            # 7 #
