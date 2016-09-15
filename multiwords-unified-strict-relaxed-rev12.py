@@ -60,16 +60,16 @@ def _localmaxs_strict(max_n, gtab):
         if n == 1:
             rej.add(n_gram)
         elif n > 2:
-            l = n_gram[1:]
-            r = n_gram[:-1]
-            ldiff = c - gtab[l]
-            rdiff = c - gtab[r]
-            if n > max_n or ldiff < 0 or rdiff < 0:
+            l, r = n_gram[1:], n_gram[:-1]
+            gl = gtab[l]
+            gr = gtab[r]
+            if n > max_n or c < gl or c < gr:
                 rej.add(n_gram)
-            if ldiff > 0:
-                rej.add(l)
-            if rdiff > 0:
-                rej.add(r)
+            else:
+                if c > gl:
+                    rej.add(l)
+                if c > gr:
+                    rej.add(r)
     return set(gtab) - rej
 
 

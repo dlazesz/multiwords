@@ -126,7 +126,7 @@ $BIN/ngrams.py $((MAXN + 1)) |
     LANG=C sort -S $MEM | LANG=C uniq -c |
     mawk -v OFS="\t" '{for (i=2; i<NF; i++)
                            printf("%s ", $i); print $NF,$1 }' |      # 1 #
-    mawk -F"\t" -v OFS="\t" 'BEGIN { p_len = 0}
+    mawk -F"\t" -v OFS="\t" 'BEGIN {p_len = 0}
                          {sep_p = ""  # Skip first separator  CASCADE FREQS
                           sep_f = ""
                           joined_p = ""
@@ -155,7 +155,7 @@ $BIN/ngrams.py $((MAXN + 1)) |
            printf("%s%s%s", ngram[1], $0, ORS)  # Print the rest
           }' |  # "a b c" => "c b a"
     LANG=C sort -t $'\t' -k 1 -S $MEM |                              # 3 #
-    mawk -F"\t" -v OFS="\t" 'BEGIN { p_len = 0}
+    mawk -F"\t" -v OFS="\t" 'BEGIN {p_len = 0}
                          {sep_p = ""  # Skip first separator  CASCADE FREQS
                           sep_f = ""
                           joined_p = ""
@@ -182,7 +182,42 @@ $BIN/ngrams.py $((MAXN + 1)) |
     cut -f 1,2,5 |  # keep only three columns: <ngram> <freq> <glue> # 6 #
     mawk -v OFS="\t" '{  # mark all ngrams as accepted
                        print $0,"+"}' |  # (append '\t+')            # 7 #
-    $BIN/rejlocalmin.py |                                            # 8 #
+    mawk -F"\t" -v OFS="\t" 'BEGIN {s_len = 0}
+                         {sep_p = ""  # Skip first separator
+                          sep_f = ""
+                          joined_p = ""
+                          joined_f = ""
+                          while (s_len > 0 && index($1, stack_n[s_len] " ") != 1){
+                              printf("%s%s%s%s%.18f%s%s%s", stack_n[s_len], OFS, stack_f[s_len], OFS,
+                                                            stack_g[s_len], OFS, stack_s[s_len], ORS)
+                              delete stack_n[s_len]
+                              delete stack_f[s_len]
+                              delete stack_g[s_len]
+                              delete stack_s[s_len]
+                              s_len--  # stack.pop() :)
+                          }
+                          if (s_len > 0){
+                              if (stack_g[s_len] < $3)
+                                  stack_s[s_len] = "-"
+                              else if (stack_g[s_len] > $3)
+                                  $4 = "-"
+                          }
+                          s_len++
+                          stack_n[s_len] = $1
+                          stack_f[s_len] = $2
+                          stack_g[s_len] = $3
+                          stack_s[s_len] = $4
+                          }
+                          END {while (s_len > 0){
+                                   printf("%s%s%s%s%.18f%s%s%s", stack_n[s_len], OFS, stack_f[s_len], OFS,
+                                                                 stack_g[s_len], OFS, stack_s[s_len], ORS)
+                                   delete stack_n[s_len]
+                                   delete stack_f[s_len]
+                                   delete stack_g[s_len]
+                                   delete stack_s[s_len]
+                                   s_len--  # stack.pop() :)
+                               }
+                          }' |                                       # 8 #
     mawk -F'\t' -v OFS='\t' \
          '{n=split($1, ngram, " "); $1=""       # Split, delete field
            for (i=n; i>1; i--)                  # print REVERSE N-GRAM...
@@ -190,7 +225,42 @@ $BIN/ngrams.py $((MAXN + 1)) |
            printf("%s%s%s", ngram[1], $0, ORS)  # Print the rest
           }' |  # put the ngrams in the original form
     LANG=C sort -t $'\t' -k 1 -S $MEM |  # sort by prefix
-    $BIN/rejlocalmin.py |                                            # 9 #
+    mawk -F"\t" -v OFS="\t" 'BEGIN {s_len = 0}
+                         {sep_p = ""  # Skip first separator
+                          sep_f = ""
+                          joined_p = ""
+                          joined_f = ""
+                          while (s_len > 0 && index($1, stack_n[s_len] " ") != 1){
+                              printf("%s%s%s%s%.18f%s%s%s", stack_n[s_len], OFS, stack_f[s_len], OFS,
+                                                            stack_g[s_len], OFS, stack_s[s_len], ORS)
+                              delete stack_n[s_len]
+                              delete stack_f[s_len]
+                              delete stack_g[s_len]
+                              delete stack_s[s_len]
+                              s_len--  # stack.pop() :)
+                          }
+                          if (s_len > 0){
+                              if (stack_g[s_len] < $3)
+                                  stack_s[s_len] = "-"
+                              else if (stack_g[s_len] > $3)
+                                  $4 = "-"
+                          }
+                          s_len++
+                          stack_n[s_len] = $1
+                          stack_f[s_len] = $2
+                          stack_g[s_len] = $3
+                          stack_s[s_len] = $4
+                          }
+                          END {while (s_len > 0){
+                                   printf("%s%s%s%s%.18f%s%s%s", stack_n[s_len], OFS, stack_f[s_len], OFS,
+                                                                 stack_g[s_len], OFS, stack_s[s_len], ORS)
+                                   delete stack_n[s_len]
+                                   delete stack_f[s_len]
+                                   delete stack_g[s_len]
+                                   delete stack_s[s_len]
+                                   s_len--  # stack.pop() :)
+                               }
+                          }' |                                       # 9 #
     grep -Fv $'\t1\t' |  # drop hapax legomena (freq = 1)
     grep -v $'\t-$' |  # drop the rejected ones and
     cut -f -3 |  # drop the last column (accepted/rejected)
