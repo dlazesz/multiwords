@@ -126,7 +126,28 @@ $BIN/ngrams.py $((MAXN + 1)) |
     LANG=C sort -S $MEM | LANG=C uniq -c |
     mawk -v OFS="\t" '{for (i=2; i<NF; i++)
                            printf("%s ", $i); print $NF,$1 }' |      # 1 #
-    $BIN/cascadefreqs.py |                                           # 2 #
+    mawk -F"\t" -v OFS="\t" 'BEGIN { p_len = 0}
+                         {sep_p = ""  # Skip first separator  CASCADE FREQS
+                          sep_f = ""
+                          joined_p = ""
+                          joined_f = ""
+                          for (p_cur=1;  p_cur <= p_len; p_cur++) {
+                              if (index($1, prefixes_p[p_cur]) == 1) {
+                                  joined_p = joined_p sep_p prefixes_p[p_cur]
+                                  joined_f = joined_f sep_f prefixes_f[p_cur]
+                                  sep_p = FS  # Set separator when needed
+                                  sep_f = " "
+                              }
+                              delete prefixes_p[p_cur]  # Clean-up
+                              delete prefixes_f[p_cur]  # Clean-up
+                          }
+                          print $0, joined_f
+                          # This is needed to skip equality check! And only full words is counted!
+                          joined_p = joined_p sep_p $1 " "
+                          joined_f = joined_f sep_f $2
+                          p_len = split(joined_p, prefixes_p, FS)
+                                  split(joined_f, prefixes_f, " ")
+                         }' |                                        # 2 #
     mawk -F'\t' -v OFS='\t' \
          '{n=split($1, ngram, " "); $1=""       # Split, delete field
            for (i=n; i>1; i--)                  # print REVERSE N-GRAM...
@@ -134,9 +155,30 @@ $BIN/ngrams.py $((MAXN + 1)) |
            printf("%s%s%s", ngram[1], $0, ORS)  # Print the rest
           }' |  # "a b c" => "c b a"
     LANG=C sort -t $'\t' -k 1 -S $MEM |                              # 3 #
-    $BIN/cascadefreqs.py |                                           # 4 #
+    mawk -F"\t" -v OFS="\t" 'BEGIN { p_len = 0}
+                         {sep_p = ""  # Skip first separator  CASCADE FREQS
+                          sep_f = ""
+                          joined_p = ""
+                          joined_f = ""
+                          for (p_cur=1;  p_cur <= p_len; p_cur++) {
+                              if (index($1, prefixes_p[p_cur]) == 1) {
+                                  joined_p = joined_p sep_p prefixes_p[p_cur]
+                                  joined_f = joined_f sep_f prefixes_f[p_cur]
+                                  sep_p = FS  # Set separator when needed
+                                  sep_f = " "
+                              }
+                              delete prefixes_p[p_cur]  # Clean-up
+                              delete prefixes_f[p_cur]  # Clean-up
+                          }
+                          print $0, joined_f
+                          # This is needed to skip equality check! And only full words is counted!
+                          joined_p = joined_p sep_p $1 " "
+                          joined_f = joined_f sep_f $2
+                          p_len = split(joined_p, prefixes_p, FS)
+                                  split(joined_f, prefixes_f, " ")
+                         }' |                                        # 4 #
     LANG=C grep -v $'^[^ ]*\t' |  # drop unigrams                    # 5 #
-    eval $GFUN |
+    eval $GFUN |  # There is no significant speedup on integrating cut and the next mawk...
     cut -f 1,2,5 |  # keep only three columns: <ngram> <freq> <glue> # 6 #
     mawk -v OFS="\t" '{  # mark all ngrams as accepted
                        print $0,"+"}' |  # (append '\t+')            # 7 #
@@ -149,7 +191,7 @@ $BIN/ngrams.py $((MAXN + 1)) |
           }' |  # put the ngrams in the original form
     LANG=C sort -t $'\t' -k 1 -S $MEM |  # sort by prefix
     $BIN/rejlocalmin.py |                                            # 9 #
-    grep -v $'\t1\t' |  # drop hapax legomena (freq = 1)
+    grep -Fv $'\t1\t' |  # drop hapax legomena (freq = 1)
     grep -v $'\t-$' |  # drop the rejected ones and
     cut -f -3 |  # drop the last column (accepted/rejected)
     mawk -F"\t" -v OFS="\t"\

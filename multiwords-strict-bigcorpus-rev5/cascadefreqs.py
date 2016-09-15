@@ -5,7 +5,8 @@ import sys
 
 prefixes = []
 for line in sys.stdin:
-    ngram, freq, *freqs = line.rstrip().split('\t', 2)
+    line = line.rstrip()
+    ngram, freq, *freqs = line.split('\t', 2)
     prefixes = [(prefix, freqency) for prefix, freqency in prefixes if ngram.startswith(prefix)]
-    print(ngram, freq, *freqs, ' '.join(frequency for prefix, frequency in prefixes), sep='\t')
+    print(line, ' '.join(frequency for _, frequency in prefixes), sep='\t')
     prefixes.append((ngram + ' ', freq))  # This is needed to skip equality check! And only full words is counted!
