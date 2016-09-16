@@ -229,8 +229,8 @@ mawk -v maxn=$((MAXN + 1)) '{min = maxn < NF ? maxn : NF; m = NF + 1
     eval $revngrams |  # put the ngrams in the original form
     LANG=C sort -t $'\t' -k 1 -S $MEM |  # sort by prefix
     eval $rejlocalmin |                                              # 9 #
-    grep -Fv $'\t1\t' |  # drop hapax legomena (freq = 1)
-    grep -v $'\t-$' |  # drop the rejected ones and
+    LANG=C grep -Fv $'\t1\t' |  # drop hapax legomena (freq = 1)
+    LANG=C grep -v $'\t-$' |  # drop the rejected ones and
     cut -f -3 |  # drop the last column (accepted/rejected)
     mawk -F$'\t' -v OFS=$'\t'\
                 -v n=$((MAXN+1)) '{len=split($1, a, " ")  # cut and grep is faster then MAWK!

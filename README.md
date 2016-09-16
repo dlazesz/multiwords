@@ -14,22 +14,28 @@ Otherwise, you may choose the relaxed version for its greater recall or the stri
 
 Originally there were four versions available, which were incorporated into three as seen below:
 
-- multiwords 1.2 strict and relaxed versions (This implementation is not suitable for large corpora because it requires lots of memory.)
-- multiwords 1.5 bigcorpus-rev5 strict version (This can handle huge corpora, but it requires Python 3, Perl, Bash, and common *NIX programs (cut, grep, sed and sort).)
-- multiwords 2.0 relaxed version
+- Simple version: _multiwords 1.2_ strict and relaxed versions (This implementation is not suitable for large corpora because it requires lots of memory.)
+- Strict-bigcorpus version: _multiwords 1.5 bigcorpus-rev5_ strict version (This can handle huge corpora. See details above.).)
+- Relaxed version: _multiwords 2.0_ relaxed version (Uses somewhat lesser memory works on disk, slow.)
 
 ## Usage
 
-### multiwords 1.2 and multiwords 1.5 bigcorpus-rev5 versions
+### Simple version
 
 Command syntax:
+
+Requirements: Python 3
 
 > ./multiwords.py dice|scp strict|relaxed MAXN
 For example this command will extract bigrams and trigrams from the given corpus, using scp as the "glue" function:
 
 > ./multiwords.py scp strict 3 < corpus.txt > mwus.txt
 
-### multiwords 2.0 version
+### Relaxed version
+
+Note: A bug fixed since the original version.  See source code for details.
+
+Requirements: Python 3
 
 > ./multiwords2.py dice|scp MAXN TEXTFILE OUTPUTDIR
 
@@ -45,11 +51,14 @@ For example this command will extract bigrams and trigrams from the given corpus
 
 The output files will be results/2mwus.txt and results/3mwus.txt
 
-### multiwords 1.5 bigcorpus-rev5 strict version
+### Strict-bigcorpus version
+
+Note: This version is highly optimised for speed, and the handling of big corpora. This repository contains the original version (in a previous commit). That version need perl, sed and Python 3 to work.
 
 Requirements:
 - [MAWK](http://invisible-island.net/mawk/) as [it is the fastest AWK implementation available!](https://brenocon.com/blog/2009/09/dont-mawk-awk-the-fastest-and-most-elegant-big-data-munging-language/)
-- No _Perl_ and _sed_ needed as MAWK is faster.
+- Standard Unix tools: grep, cut, sort, uniq
+- Nothing else...
 
 > ./multiwords-strict-bigcorpus-rev5/multiwords.sh dice|scp MAXN SORTBUF < input.txt > output.txt
 
@@ -67,17 +76,17 @@ My modifications are licensed under the [GNU GPL v3.0](https://www.gnu.org/licen
 
 ## Reference
 
-If you use this implementation of the original Local Maxima algorithm please cite the following paper: 
+If you use this implementation of the original Local Maxima algorithm please cite the following paper:
 
 A Local Maxima method and a Fair Dispersion Normalization for extracting multi-word units from corpora.
 Joaquim Ferreira da Silva, and José Gabriel Pereira Lopes.
 In Proceedings of the Sixth Meeting on Mathematics of Language (MOL6), Orlando, Florida July 23-25, 1999. pp. 369-381.
 ([pdf](http://hlt.di.fct.unl.pt/jfs/MOL99.pdf))
 
-	@inproceedings{da1999local,
-	  title={A local maxima method and a fair dispersion normalization for extracting multi-word units from corpora},
-	  author={Silva, Joaquim Ferreira da and Lopes, José Gabriel Pereira},
-	  booktitle={Sixth Meeting on Mathematics of Language},
-	  pages={369--381},
-	  year={1999}
-	}
+    @inproceedings{da1999local,
+      title={A local maxima method and a fair dispersion normalization for extracting multi-word units from corpora},
+      author={Silva, Joaquim Ferreira da and Lopes, José Gabriel Pereira},
+      booktitle={Sixth Meeting on Mathematics of Language},
+      pages={369--381},
+      year={1999}
+    }
