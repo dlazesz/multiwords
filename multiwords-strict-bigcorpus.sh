@@ -109,7 +109,6 @@ scp="mawk -F$'\t' -v OFS=$'\t' '{len = split(\$3, pref_freqs, \" \");
                                 }'"
 
 # Cascade frequencies (onesided version, as it will be run twice):
-# Note (1): The delete statements is only for tidyness, can be omited for speedup
 # 1) Store the prefixes of current element by joining them (prefix = [(ngram, freq) for in prefix if ...]
 # 2) Print the current n-gram with the computed prefix frequencies
 # 3) Add the current n-gram to the "prefix array" with an additional space for full word match
@@ -126,8 +125,6 @@ cascadefreqs="mawk -F$'\t' -v OFS=$'\t' 'BEGIN {p_len = 0}
                                                  sep_p = FS;
                                                  sep_f = \" \"
                                              }
-                                             delete prefixes_p[p_cur];
-                                             delete prefixes_f[p_cur]
                                          }
                                          print \$0, joined_f;
                                          joined_p = joined_p sep_p \$1 \" \";
@@ -138,7 +135,6 @@ cascadefreqs="mawk -F$'\t' -v OFS=$'\t' 'BEGIN {p_len = 0}
 
 # Reject local minima (Strict, onesided version, as it will be run twice):
 # Note (1): The Relaxed version can not be separated by sides, therefore must implemented in an other way
-# Note (2): The delete statements is only for tidyness, can be omited for speedup
 # Note (3): The print formatting is only for comparsion purposes, can be omited for speedup (print a, b, c)
 # 1) Simulate stack: while (stack and stack[-1].isprefixof(ngram)) print(stack.pop())
 # 2) Do the rejection: if ... elif ...
@@ -152,10 +148,6 @@ rejlocalmin="mawk -F$'\t' -v OFS=$'\t' 'BEGIN {s_len = 0}
                                         while (s_len > 0 && index(\$1, stack_n[s_len] \" \") != 1){
                                             printf(\"%s%s%s%s%.18f%s%s%s\", stack_n[s_len], OFS, stack_f[s_len], OFS,
                                                                             stack_g[s_len], OFS, stack_s[s_len], ORS);
-                                            delete stack_n[s_len];
-                                            delete stack_f[s_len];
-                                            delete stack_g[s_len];
-                                            delete stack_s[s_len];
                                             s_len--
                                         }
                                         if (s_len > 0){
@@ -172,11 +164,7 @@ rejlocalmin="mawk -F$'\t' -v OFS=$'\t' 'BEGIN {s_len = 0}
                                         }
                                         END {for (s_curr=s_len; s_curr > 0; s_curr--){
                                                  printf(\"%s%s%s%s%.18f%s%s%s\", stack_n[s_curr], OFS, stack_f[s_curr], OFS,
-                                                                                 stack_g[s_curr], OFS, stack_s[s_curr], ORS);
-                                                 delete stack_n[s_curr];
-                                                 delete stack_f[s_curr];
-                                                 delete stack_g[s_curr];
-                                                 delete stack_s[s_curr]
+                                                                                 stack_g[s_curr], OFS, stack_s[s_curr], ORS)
                                              }
                                         }'"
 
