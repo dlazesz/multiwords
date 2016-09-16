@@ -94,18 +94,19 @@ dice="mawk -F$'\t' -v OFS=$'\t' '{len = split(\$3, pref_freqs, \" \");
                                         split(\$4, suff_freqs, \" \");
                                   sum = 0;
                                   for (i=1; i <= len; i++) sum += pref_freqs[i] + suff_freqs[len+1-i];
-                                  printf(\"%s%s%.18f%s\", \$0, OFS, 2*\$2 *len / sum, ORS)
+                                  print \$0, 2*\$2 *len / sum
                                  }'"
 
 # SCP gluing method:
-# Note (1): For numerical stability avg is splitted: freq^2 *len(pref_freqs) / sum(...)
+# Note (1): len(pref_freqs) == len(suff_freqs) is always true, so the code is simplified
+# Note (2): For numerical stability avg is splitted: freq^2 *len(pref_freqs) / sum(...)
 # 1) Split the prefix and suffix freqs to an array (separated by space no need of JSON)
 # 2) Apply the glue function: freq^2 / avg([pref_freq * suff_freq] for ... in zip(pref_freqs, suff_freqs)])
 scp="mawk -F$'\t' -v OFS=$'\t' '{len = split(\$3, pref_freqs, \" \");
                                        split(\$4, suff_freqs, \" \");
                                  sum = 0;
                                  for (i=1; i <= len; i++) sum += (pref_freqs[i] *suff_freqs[len+1-i]);
-                                 printf(\"%s%s%.18f%s\", \$0, OFS, \$2^2 *len / sum, ORS)
+                                 print \$0, \$2^2 *len / sum
                                 }'"
 
 # Cascade frequencies (onesided version, as it will be run twice):
@@ -135,7 +136,6 @@ cascadefreqs="mawk -F$'\t' -v OFS=$'\t' 'BEGIN {p_len = 0}
 
 # Reject local minima (Strict, onesided version, as it will be run twice):
 # Note (1): The Relaxed version can not be separated by sides, therefore must implemented in an other way
-# Note (3): The print formatting is only for comparsion purposes, can be omited for speedup (print a, b, c)
 # 1) Simulate stack: while (stack and stack[-1].isprefixof(ngram)) print(stack.pop())
 # 2) Do the rejection: if ... elif ...
 # 3) Append the new elem on stack: stack.append(line)
@@ -146,8 +146,7 @@ rejlocalmin="mawk -F$'\t' -v OFS=$'\t' 'BEGIN {s_len = 0}
                                         joined_p = \"\";
                                         joined_f = \"\";
                                         while (s_len > 0 && index(\$1, stack_n[s_len] \" \") != 1){
-                                            printf(\"%s%s%s%s%.18f%s%s%s\", stack_n[s_len], OFS, stack_f[s_len], OFS,
-                                                                            stack_g[s_len], OFS, stack_s[s_len], ORS);
+                                            print stack_n[s_len], stack_f[s_len], stack_g[s_len], stack_s[s_len];
                                             s_len--
                                         }
                                         if (s_len > 0){
@@ -163,8 +162,7 @@ rejlocalmin="mawk -F$'\t' -v OFS=$'\t' 'BEGIN {s_len = 0}
                                         stack_s[s_len] = \$4
                                         }
                                         END {for (s_curr=s_len; s_curr > 0; s_curr--){
-                                                 printf(\"%s%s%s%s%.18f%s%s%s\", stack_n[s_curr], OFS, stack_f[s_curr], OFS,
-                                                                                 stack_g[s_curr], OFS, stack_s[s_curr], ORS)
+                                                 print stack_n[s_curr], stack_f[s_curr], stack_g[s_curr], stack_s[s_curr]
                                              }
                                         }'"
 
