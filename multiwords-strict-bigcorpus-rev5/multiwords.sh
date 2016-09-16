@@ -205,7 +205,14 @@ fi
 MAXN=$2
 MEM=$3
 
-$BIN/ngrams.py $((MAXN + 1)) |
+mawk -v maxn=$((MAXN + 1)) '{min = maxn < NF ? maxn : NF; m = NF + 1
+                             for (n=1; n <= min; n++)
+                                 for (i=1; i <= m - n; i++) {
+                                     for (j = i; j <= (i + n - 2); j++)
+                                         printf("%s%s", $j, OFS)
+                                     print $(i + n - 1)
+                                 }
+                             }' |
     LANG=C sort -S $MEM | LANG=C uniq -c |
     mawk -v OFS=$'\t' '{for (i=2; i<NF; i++)
                            printf("%s ", $i); print $NF,$1 }' |      # 1 #
