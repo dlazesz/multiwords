@@ -80,40 +80,32 @@
 
 BIN=$(dirname $0)
 
+# The Main difference between the gluing methods:
+# 1) sum: In Dice: reversed summing, In SCP: reversed multiplication
+# 2) freq: In Dice: 2*freq, In SCP: freq^2
+# The rest is the same.
+
 # Dice gluing method:
+# Note (1): len(pref_freqs) == len(suff_freqs) is always true, so the code is simplified
+# Note (2): For numerical stability avg is splitted: 2*freq *len(pref_freqs) / sum(...)
 # 1) Split the prefix and suffix freqs to an array (separated by space no need of JSON)
 # 2) Apply the glue function: 2*freq / avg(pref_freqs) + avg(suff_freqs))
-dice="mawk -F$'\t' -v OFS=$'\t' 'function gfun(freq, pref_freqencies, p_len, suff_freqencies, s_len)
-                                 {
-                                     p_sum = 0;
-                                     s_sum = 0;
-                                     for (i=1; i <= p_len; i++) {
-                                      p_sum+= pref_freqencies[i];
-                                      s_sum+= suff_freqencies[s_len+1-i];
-                                     }
-                                     return 2*freq / (p_sum/p_len + s_sum/s_len)
-                                 }
-                                 {
-                                     p_len = split(\$3, pref_freqs, \" \");
-                                     s_len = split(\$4, suff_freqs, \" \");
-                                     printf(\"%s%s%.18f%s\", \$0, OFS, gfun(\$2, pref_freqs, p_len , suff_freqs, s_len), ORS)
+dice="mawk -F$'\t' -v OFS=$'\t' '{len = split(\$3, pref_freqs, \" \");
+                                        split(\$4, suff_freqs, \" \");
+                                  sum = 0;
+                                  for (i=1; i <= len; i++) sum += pref_freqs[i] + suff_freqs[len+1-i];
+                                  printf(\"%s%s%.18f%s\", \$0, OFS, 2*\$2 *len / sum, ORS)
                                  }'"
 
 # SCP gluing method:
 # Note (1): For numerical stability avg is splitted: freq^2 *len(pref_freqs) / sum(...)
 # 1) Split the prefix and suffix freqs to an array (separated by space no need of JSON)
 # 2) Apply the glue function: freq^2 / avg([pref_freq * suff_freq] for ... in zip(pref_freqs, suff_freqs)])
-scp="mawk -F$'\t' -v OFS=$'\t' 'function gfun(freq, pref_freqencies, p_len, suff_freqencies, s_len)
-                                {
-                                    summed_multiplied = 0;
-                                    for (i=1; i <= p_len; i++)
-                                        summed_multiplied+= (pref_freqencies[i] *suff_freqencies[s_len+1-i]);
-                                    return freq^2 *p_len / summed_multiplied
-                                }
-                                {
-                                    p_len = split(\$3, pref_freqs, \" \");
-                                    s_len = split(\$4, suff_freqs, \" \");
-                                    printf(\"%s%s%.18f%s\", \$0, OFS, gfun(\$2, pref_freqs, p_len , suff_freqs, s_len), ORS)
+scp="mawk -F$'\t' -v OFS=$'\t' '{len = split(\$3, pref_freqs, \" \");
+                                       split(\$4, suff_freqs, \" \");
+                                 sum = 0;
+                                 for (i=1; i <= len; i++) sum += (pref_freqs[i] *suff_freqs[len+1-i]);
+                                 printf(\"%s%s%.18f%s\", \$0, OFS, \$2^2 *len / sum, ORS)
                                 }'"
 
 # Cascade frequencies (onesided version, as it will be run twice):
