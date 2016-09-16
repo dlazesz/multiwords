@@ -80,42 +80,133 @@
 
 BIN=$(dirname $0)
 
-dice="mawk -F$'\t' -v OFS=$'\t' 'function gfun(freq, pref_freqencies, p_len, suf_freqencies, s_len)
-                        {
-                            p_sum = 0;
-                            for (i in pref_freqencies) p_sum+= pref_freqencies[i];
-                            s_sum = 0;
-                            for (i in suf_freqencies) s_sum+= suf_freqencies[s_len+1-i];
-                            return 2*freq / (p_sum/p_len + s_sum/s_len)
-                        }
-                        {
-                            p_len = split(\$3, pref_freqs, \" \");
-                            s_len = split(\$4, suf_freqs, \" \");
-                            printf(\"%s%s%.18f%s\", \$0, OFS, gfun(\$2, pref_freqs, p_len , suf_freqs, s_len), ORS)
-                        }'"
+# Dice gluing method:
+# 1) Split the prefix and suffix freqs to an array (separated by space no need of JSON)
+# 2) Apply the glue function: 2*freq / avg(pref_freqs) + avg(suff_freqs))
+dice="mawk -F$'\t' -v OFS=$'\t' 'function gfun(freq, pref_freqencies, p_len, suff_freqencies, s_len)
+                                 {
+                                     p_sum = 0;
+                                     s_sum = 0;
+                                     for (i=1; i <= p_len; i++) {
+                                      p_sum+= pref_freqencies[i];
+                                      s_sum+= suff_freqencies[s_len+1-i];
+                                     }
+                                     return 2*freq / (p_sum/p_len + s_sum/s_len)
+                                 }
+                                 {
+                                     p_len = split(\$3, pref_freqs, \" \");
+                                     s_len = split(\$4, suff_freqs, \" \");
+                                     printf(\"%s%s%.18f%s\", \$0, OFS, gfun(\$2, pref_freqs, p_len , suff_freqs, s_len), ORS)
+                                 }'"
 
-scp="mawk -F$'\t' -v OFS=$'\t' 'function gfun(freq, pref_freqencies, p_len, suf_freqencies, s_len)
-                        {
-                            summed_multiplied = 0;
-                            for (i in pref_freqencies)
-                                summed_multiplied+= (pref_freqencies[i] *suf_freqencies[s_len+1-i]);
-                            return freq^2 *p_len / summed_multiplied
-                        }
-                        {
-                            p_len = split(\$3, pref_freqs, \" \");
-                            s_len = split(\$4, suf_freqs, \" \");
-                            printf(\"%s%s%.18f%s\", \$0, OFS, gfun(\$2, pref_freqs, p_len , suf_freqs, s_len), ORS)
-                        }'"
+# SCP gluing method:
+# Note (1): For numerical stability avg is splitted: freq^2 *len(pref_freqs) / sum(...)
+# 1) Split the prefix and suffix freqs to an array (separated by space no need of JSON)
+# 2) Apply the glue function: freq^2 / avg([pref_freq * suff_freq] for ... in zip(pref_freqs, suff_freqs)])
+scp="mawk -F$'\t' -v OFS=$'\t' 'function gfun(freq, pref_freqencies, p_len, suff_freqencies, s_len)
+                                {
+                                    summed_multiplied = 0;
+                                    for (i=1; i <= p_len; i++)
+                                        summed_multiplied+= (pref_freqencies[i] *suff_freqencies[s_len+1-i]);
+                                    return freq^2 *p_len / summed_multiplied
+                                }
+                                {
+                                    p_len = split(\$3, pref_freqs, \" \");
+                                    s_len = split(\$4, suff_freqs, \" \");
+                                    printf(\"%s%s%.18f%s\", \$0, OFS, gfun(\$2, pref_freqs, p_len , suff_freqs, s_len), ORS)
+                                }'"
+
+# Cascade frequencies (onesided version, as it will be run twice):
+# Note (1): The delete statements is only for tidyness, can be omited for speedup
+# 1) Store the prefixes of current element by joining them (prefix = [(ngram, freq) for in prefix if ...]
+# 2) Print the current n-gram with the computed prefix frequencies
+# 3) Add the current n-gram to the "prefix array" with an additional space for full word match
+# 4) Make a new prefix array and maintain the length (counter loop is faster, than iterating)
+cascadefreqs="mawk -F$'\t' -v OFS=$'\t' 'BEGIN {p_len = 0}
+                                        {sep_p = \"\";
+                                         sep_f = \"\";
+                                         joined_p = \"\";
+                                         joined_f = \"\";
+                                         for (p_cur=1;  p_cur <= p_len; p_cur++) {
+                                             if (index(\$1, prefixes_p[p_cur]) == 1) {
+                                                 joined_p = joined_p sep_p prefixes_p[p_cur];
+                                                 joined_f = joined_f sep_f prefixes_f[p_cur];
+                                                 sep_p = FS;
+                                                 sep_f = \" \"
+                                             }
+                                             delete prefixes_p[p_cur];
+                                             delete prefixes_f[p_cur]
+                                         }
+                                         print \$0, joined_f;
+                                         joined_p = joined_p sep_p \$1 \" \";
+                                         joined_f = joined_f sep_f \$2;
+                                         p_len = split(joined_p, prefixes_p, FS);
+                                                 split(joined_f, prefixes_f, \" \")
+                                        }'"
+
+# Reject local minima (Strict, onesided version, as it will be run twice):
+# Note (1): The Relaxed version can not be separated by sides, therefore must implemented in an other way
+# Note (2): The delete statements is only for tidyness, can be omited for speedup
+# Note (3): The print formatting is only for comparsion purposes, can be omited for speedup (print a, b, c)
+# 1) Simulate stack: while (stack and stack[-1].isprefixof(ngram)) print(stack.pop())
+# 2) Do the rejection: if ... elif ...
+# 3) Append the new elem on stack: stack.append(line)
+# 4) Finally print the stack
+rejlocalmin="mawk -F$'\t' -v OFS=$'\t' 'BEGIN {s_len = 0}
+                                       {sep_p = \"\";
+                                        sep_f = \"\";
+                                        joined_p = \"\";
+                                        joined_f = \"\";
+                                        while (s_len > 0 && index(\$1, stack_n[s_len] \" \") != 1){
+                                            printf(\"%s%s%s%s%.18f%s%s%s\", stack_n[s_len], OFS, stack_f[s_len], OFS,
+                                                                            stack_g[s_len], OFS, stack_s[s_len], ORS);
+                                            delete stack_n[s_len];
+                                            delete stack_f[s_len];
+                                            delete stack_g[s_len];
+                                            delete stack_s[s_len];
+                                            s_len--
+                                        }
+                                        if (s_len > 0){
+                                            if (stack_g[s_len] < \$3)
+                                                stack_s[s_len] = \"-\";
+                                            else if (stack_g[s_len] > \$3)
+                                                \$4 = \"-\"
+                                        }
+                                        s_len++;
+                                        stack_n[s_len] = \$1;
+                                        stack_f[s_len] = \$2;
+                                        stack_g[s_len] = \$3;
+                                        stack_s[s_len] = \$4
+                                        }
+                                        END {for (s_curr=s_len; s_curr > 0; s_curr--){
+                                                 printf(\"%s%s%s%s%.18f%s%s%s\", stack_n[s_curr], OFS, stack_f[s_curr], OFS,
+                                                                                 stack_g[s_curr], OFS, stack_s[s_curr], ORS);
+                                                 delete stack_n[s_curr];
+                                                 delete stack_f[s_curr];
+                                                 delete stack_g[s_curr];
+                                                 delete stack_s[s_curr]
+                                             }
+                                        }'"
+
+# Reverse the first field (n-gram):
+# 1) Split the first field and delete it form the original string
+# 2) Print reverse minus the last one (beause the separator) == ' '.join(reversed(...))
+# 2) Print the last elem of the n-gram and the rest of the fields
+revngrams="mawk -F$'\t' -v OFS=$'\t' '{n=split(\$1, ngram, \" \"); \$1=\"\";
+                                       for (i=n; i>1; i--)
+                                           printf(\"%s \",ngram[i]);
+                                       printf(\"%s%s%s\", ngram[1], \$0, ORS)
+                                       }'"
 
 if [ $# != 3 ]; then
     echo "usage: $0 (dice|scp) MAXN SORTBUF(there will be three sorts)!" >&2
     exit 1
 elif [ "$1" == "dice" ]; then
-	GFUN=$dice
+    GFUN=$dice
 elif [ "$1" == "scp" ]; then
-	GFUN=$scp
+    GFUN=$scp
 else
-	echo "Wrong function name ($1) chose from dice or scp!" >&2
+    echo "Wrong function name ($1) chose from dice or scp!" >&2
     exit 1
 fi
 
@@ -124,146 +215,24 @@ MEM=$3
 
 $BIN/ngrams.py $((MAXN + 1)) |
     LANG=C sort -S $MEM | LANG=C uniq -c |
-    mawk -v OFS="\t" '{for (i=2; i<NF; i++)
+    mawk -v OFS=$'\t' '{for (i=2; i<NF; i++)
                            printf("%s ", $i); print $NF,$1 }' |      # 1 #
-    mawk -F"\t" -v OFS="\t" 'BEGIN {p_len = 0}
-                         {sep_p = ""  # Skip first separator  CASCADE FREQS
-                          sep_f = ""
-                          joined_p = ""
-                          joined_f = ""
-                          for (p_cur=1;  p_cur <= p_len; p_cur++) {
-                              if (index($1, prefixes_p[p_cur]) == 1) {
-                                  joined_p = joined_p sep_p prefixes_p[p_cur]
-                                  joined_f = joined_f sep_f prefixes_f[p_cur]
-                                  sep_p = FS  # Set separator when needed
-                                  sep_f = " "
-                              }
-                              delete prefixes_p[p_cur]  # Clean-up
-                              delete prefixes_f[p_cur]  # Clean-up
-                          }
-                          print $0, joined_f
-                          # This is needed to skip equality check! And only full words is counted!
-                          joined_p = joined_p sep_p $1 " "
-                          joined_f = joined_f sep_f $2
-                          p_len = split(joined_p, prefixes_p, FS)
-                                  split(joined_f, prefixes_f, " ")
-                         }' |                                        # 2 #
-    mawk -F'\t' -v OFS='\t' \
-         '{n=split($1, ngram, " "); $1=""       # Split, delete field
-           for (i=n; i>1; i--)                  # print REVERSE N-GRAM...
-               printf("%s ",ngram[i])           # ...minus the first
-           printf("%s%s%s", ngram[1], $0, ORS)  # Print the rest
-          }' |  # "a b c" => "c b a"
+    eval $cascadefreqs |                                             # 2 #
+    eval $revngrams |  # "a b c" => "c b a"
     LANG=C sort -t $'\t' -k 1 -S $MEM |                              # 3 #
-    mawk -F"\t" -v OFS="\t" 'BEGIN {p_len = 0}
-                         {sep_p = ""  # Skip first separator  CASCADE FREQS
-                          sep_f = ""
-                          joined_p = ""
-                          joined_f = ""
-                          for (p_cur=1;  p_cur <= p_len; p_cur++) {
-                              if (index($1, prefixes_p[p_cur]) == 1) {
-                                  joined_p = joined_p sep_p prefixes_p[p_cur]
-                                  joined_f = joined_f sep_f prefixes_f[p_cur]
-                                  sep_p = FS  # Set separator when needed
-                                  sep_f = " "
-                              }
-                              delete prefixes_p[p_cur]  # Clean-up
-                              delete prefixes_f[p_cur]  # Clean-up
-                          }
-                          print $0, joined_f
-                          # This is needed to skip equality check! And only full words is counted!
-                          joined_p = joined_p sep_p $1 " "
-                          joined_f = joined_f sep_f $2
-                          p_len = split(joined_p, prefixes_p, FS)
-                                  split(joined_f, prefixes_f, " ")
-                         }' |                                        # 4 #
+    eval $cascadefreqs |                                             # 4 #
     LANG=C grep -v $'^[^ ]*\t' |  # drop unigrams                    # 5 #
     eval $GFUN |  # There is no significant speedup on integrating cut and the next mawk...
     cut -f 1,2,5 |  # keep only three columns: <ngram> <freq> <glue> # 6 #
     mawk -v OFS="\t" '{  # mark all ngrams as accepted
                        print $0,"+"}' |  # (append '\t+')            # 7 #
-    mawk -F"\t" -v OFS="\t" 'BEGIN {s_len = 0}
-                         {sep_p = ""  # Skip first separator
-                          sep_f = ""
-                          joined_p = ""
-                          joined_f = ""
-                          while (s_len > 0 && index($1, stack_n[s_len] " ") != 1){
-                              printf("%s%s%s%s%.18f%s%s%s", stack_n[s_len], OFS, stack_f[s_len], OFS,
-                                                            stack_g[s_len], OFS, stack_s[s_len], ORS)
-                              delete stack_n[s_len]
-                              delete stack_f[s_len]
-                              delete stack_g[s_len]
-                              delete stack_s[s_len]
-                              s_len--  # stack.pop() :)
-                          }
-                          if (s_len > 0){
-                              if (stack_g[s_len] < $3)
-                                  stack_s[s_len] = "-"
-                              else if (stack_g[s_len] > $3)
-                                  $4 = "-"
-                          }
-                          s_len++
-                          stack_n[s_len] = $1
-                          stack_f[s_len] = $2
-                          stack_g[s_len] = $3
-                          stack_s[s_len] = $4
-                          }
-                          END {while (s_len > 0){
-                                   printf("%s%s%s%s%.18f%s%s%s", stack_n[s_len], OFS, stack_f[s_len], OFS,
-                                                                 stack_g[s_len], OFS, stack_s[s_len], ORS)
-                                   delete stack_n[s_len]
-                                   delete stack_f[s_len]
-                                   delete stack_g[s_len]
-                                   delete stack_s[s_len]
-                                   s_len--  # stack.pop() :)
-                               }
-                          }' |                                       # 8 #
-    mawk -F'\t' -v OFS='\t' \
-         '{n=split($1, ngram, " "); $1=""       # Split, delete field
-           for (i=n; i>1; i--)                  # print REVERSE N-GRAM...
-               printf("%s ",ngram[i])           # ...minus the first
-           printf("%s%s%s", ngram[1], $0, ORS)  # Print the rest
-          }' |  # put the ngrams in the original form
+    eval $rejlocalmin |                                              # 8 #
+    eval $revngrams |  # put the ngrams in the original form
     LANG=C sort -t $'\t' -k 1 -S $MEM |  # sort by prefix
-    mawk -F"\t" -v OFS="\t" 'BEGIN {s_len = 0}
-                         {sep_p = ""  # Skip first separator
-                          sep_f = ""
-                          joined_p = ""
-                          joined_f = ""
-                          while (s_len > 0 && index($1, stack_n[s_len] " ") != 1){
-                              printf("%s%s%s%s%.18f%s%s%s", stack_n[s_len], OFS, stack_f[s_len], OFS,
-                                                            stack_g[s_len], OFS, stack_s[s_len], ORS)
-                              delete stack_n[s_len]
-                              delete stack_f[s_len]
-                              delete stack_g[s_len]
-                              delete stack_s[s_len]
-                              s_len--  # stack.pop() :)
-                          }
-                          if (s_len > 0){
-                              if (stack_g[s_len] < $3)
-                                  stack_s[s_len] = "-"
-                              else if (stack_g[s_len] > $3)
-                                  $4 = "-"
-                          }
-                          s_len++
-                          stack_n[s_len] = $1
-                          stack_f[s_len] = $2
-                          stack_g[s_len] = $3
-                          stack_s[s_len] = $4
-                          }
-                          END {while (s_len > 0){
-                                   printf("%s%s%s%s%.18f%s%s%s", stack_n[s_len], OFS, stack_f[s_len], OFS,
-                                                                 stack_g[s_len], OFS, stack_s[s_len], ORS)
-                                   delete stack_n[s_len]
-                                   delete stack_f[s_len]
-                                   delete stack_g[s_len]
-                                   delete stack_s[s_len]
-                                   s_len--  # stack.pop() :)
-                               }
-                          }' |                                       # 9 #
+    eval $rejlocalmin |                                              # 9 #
     grep -Fv $'\t1\t' |  # drop hapax legomena (freq = 1)
     grep -v $'\t-$' |  # drop the rejected ones and
     cut -f -3 |  # drop the last column (accepted/rejected)
-    mawk -F"\t" -v OFS="\t"\
+    mawk -F$'\t' -v OFS=$'\t'\
                 -v n=$((MAXN+1)) '{len=split($1, a, " ")  # cut and grep is faster then MAWK!
                                    if (n != len) print $0}'          # 10 #
