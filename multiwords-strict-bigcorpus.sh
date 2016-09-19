@@ -161,9 +161,8 @@ rejlocalmin="mawk -F$'\t' -v OFS=$'\t' 'BEGIN {s_len = 0}
                                         stack_g[s_len] = \$3;
                                         stack_s[s_len] = \$4
                                         }
-                                        END {for (s_curr=s_len; s_curr > 0; s_curr--){
+                                        END {for (s_curr=s_len; s_curr > 0; s_curr--)
                                                  print stack_n[s_curr], stack_f[s_curr], stack_g[s_curr], stack_s[s_curr]
-                                             }
                                         }'"
 
 # Reverse the first field (n-gram):
@@ -171,13 +170,12 @@ rejlocalmin="mawk -F$'\t' -v OFS=$'\t' 'BEGIN {s_len = 0}
 # 2) Print reverse minus the last one (beause the separator) == ' '.join(reversed(...))
 # 2) Print the last elem of the n-gram and the rest of the fields
 revngrams="mawk -F$'\t' -v OFS=$'\t' '{n=split(\$1, ngram, \" \"); \$1=\"\";
-                                       for (i=n; i>1; i--)
-                                           printf(\"%s \",ngram[i]);
+                                       for (i=n; i>1; i--) printf(\"%s \",ngram[i]);
                                        printf(\"%s%s%s\", ngram[1], \$0, ORS)
                                        }'"
 
 if [ $# != 3 ]; then
-    echo "usage: $0 (dice|scp) MAXN SORTBUF(there will be three sorts)!" >&2
+    echo "usage: $0 (dice|scp) MAXN SORTBUF(there will be four sorts)!" >&2
     exit 1
 elif [ "$1" == "dice" ]; then
     GFUN=$dice
@@ -220,4 +218,5 @@ mawk -v maxn=$((MAXN + 1)) '{min = maxn < NF ? maxn : NF; m = NF + 1
     cut -f -3 |  # drop the last column (accepted/rejected)
     mawk -F$'\t' -v OFS=$'\t'\
                 -v n=$((MAXN+1)) '{len=split($1, a, " ")  # cut and grep is faster then MAWK!
-                                   if (n != len) print $0}'          # 10 #
+                                   if (n != len) print $0}' |        # 10 #
+    LANG=C sort -S $MEM -t$'\t' -k3gr

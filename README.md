@@ -62,11 +62,15 @@ Requirements:
 
 > ./multiwords-strict-bigcorpus-rev5/multiwords.sh dice|scp MAXN SORTBUF < input.txt > output.txt
 
-SORTBUF should not be more than the half of your memory as __there is three sorts in the pipeline__!
+SORTBUF: __There is four sorts in the pipeline__, so you should not add more than 90% of your system's memory!
+
+You should __export TEMPDIR=/much_space/__ because the big temporary files!
+
+
 
 For example:
 
-> ./multiwords-strict-bigcorpus-rev5/multiwords.sh dice 3 30% < input.txt > output.txt
+> ./multiwords-strict-bigcorpus-rev5/multiwords.sh dice 3 90% < input.txt > output.txt
 
 ## License
 
